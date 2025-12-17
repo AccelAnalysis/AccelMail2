@@ -588,7 +588,7 @@ export default function AccelMailApp() {
     setPage('results');
   };
 
-  const LeadCaptureModal = ({ onClose, source, centroid, audienceType }) => {
+  const LeadCaptureModal = ({ onClose, source, centroid, audienceType, radius }) => {
     const [fullName, setFullName] = useState('');
     const [workEmail, setWorkEmail] = useState('');
     const [company, setCompany] = useState('');
@@ -608,7 +608,8 @@ export default function AccelMailApp() {
         source: (source || '').toString(),
         marketCenterLat: centroid ? centroid[0].toString() : '',
         marketCenterLng: centroid ? centroid[1].toString() : '',
-        audienceType: audienceType || ''
+        audienceType: audienceType || '',
+        radius: (radius == null ? '' : String(radius))
       };
 
       if (!payload.fullName || !payload.workEmail) {
@@ -637,6 +638,7 @@ export default function AccelMailApp() {
           marketCenterLat: payload.marketCenterLat,
           marketCenterLng: payload.marketCenterLng,
           audienceType: payload.audienceType,
+          radius: payload.radius,
           token: leadToken
         });
 

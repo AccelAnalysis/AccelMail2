@@ -45,7 +45,11 @@ function normalizePayload_(e) {
     company: (p.company || '').trim(),
     phone: (p.phone || '').trim(),
     source: (p.source || '').trim(),
-    token: (p.token || '').trim()
+    token: (p.token || '').trim(),
+    marketCenterLat: (p.marketCenterLat || '').trim(),
+    marketCenterLng: (p.marketCenterLng || '').trim(),
+    audienceType: (p.audienceType || '').trim(),
+    radius: (p.radius || '').trim()
   };
 }
 
@@ -59,7 +63,11 @@ function appendLead_(data) {
     data.workEmail,
     data.company,
     data.phone,
-    data.source
+    data.source,
+    data.audienceType,
+    data.marketCenterLat,
+    data.marketCenterLng,
+    data.radius
   ]);
 }
 

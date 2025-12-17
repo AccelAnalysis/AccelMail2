@@ -1,12 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import AccelMailApp from '../AccelMail2.jsx'
+import AccelMailApp from './App.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  React.createElement(
-    React.StrictMode,
-    null,
-    React.createElement(AccelMailApp)
-  ),
+  <React.StrictMode>
+    <AccelMailApp />
+  </React.StrictMode>,
 )

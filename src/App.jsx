@@ -520,8 +520,8 @@ export default function AccelMailApp() {
     };
 
     return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl">
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl relative z-[10000]">
           <h3 className="text-2xl font-bold text-slate-900 mb-2">Get the Definition-to-Outreach Kit</h3>
           <p className="text-slate-500 mb-6">Enter your info to get our 1-page segmentation checklist + example high-intent lists.</p>
           <div className="space-y-4">

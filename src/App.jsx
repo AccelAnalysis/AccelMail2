@@ -14,7 +14,12 @@ import {
   Info,
   Mail,
   LocateFixed,
-  Layers
+  Layers,
+  Calendar,
+  Building2,
+  Home,
+  MapPin,
+  Clock
 } from 'lucide-react';
 
 // --- Components ---
@@ -32,77 +37,152 @@ const MapRadiusUpdater = ({ center, radius }) => {
   return null;
 };
 
-const InteractiveMap = ({ zipCode, radius }) => {
-  const [center, setCenter] = useState([36.8529, -75.9780]); // Default: Virginia Beach
+// Click handler component for map
+const MapClickHandler = ({ onMapClick }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    const handleClick = (e) => {
+      onMapClick([e.latlng.lat, e.latlng.lng]);
+    };
+    map.on('click', handleClick);
+    return () => map.off('click', handleClick);
+  }, [map, onMapClick]);
+  
+  return null;
+};
+
+const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [addressInput, setAddressInput] = useState('');
 
   // Convert radius miles to meters for Leaflet Circle
   const radiusMeters = radius * 1609.34;
 
-  useEffect(() => {
-    const geocodeZip = async () => {
-      if (!zipCode || zipCode.length < 5) return;
-      
-      setLoading(true);
-      setError('');
-      
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?postalcode=${zipCode}&country=US&format=json&limit=1`
-        );
-        const data = await response.json();
-        
-        if (data && data.length > 0) {
-          setCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-        } else {
-          setError('Zip code not found');
+  const geocodeAddress = async () => {
+    if (!addressInput.trim()) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressInput)}&format=json&limit=1`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'AccelMail/1.0'
+          }
         }
-      } catch (e) {
-        setError('Failed to locate zip code');
-      } finally {
-        setLoading(false);
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const newCenter = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        onCentroidChange(newCenter, data[0].display_name);
+      } else {
+        setError('Address not found. Try a city name or zip code.');
       }
-    };
+    } catch (e) {
+      console.error('Geocoding error:', e);
+      setError('Failed to locate address. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const debounce = setTimeout(geocodeZip, 500);
-    return () => clearTimeout(debounce);
-  }, [zipCode]);
+  const handleMapClick = (coords) => {
+    onCentroidChange(coords, `${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}`);
+  };
 
   return (
-    <div className="mt-6 h-64 rounded-xl overflow-hidden border border-slate-200 relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/70 z-[1000] flex items-center justify-center">
-          <div className="text-blue-600 font-medium">Locating...</div>
-        </div>
-      )}
+    <div className="mt-6 space-y-4">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Enter address, city, or zip code..."
+          value={addressInput}
+          onChange={(e) => setAddressInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && geocodeAddress()}
+          className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+        />
+        <button
+          onClick={geocodeAddress}
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
+        >
+          {loading ? 'Finding...' : 'Set Location'}
+        </button>
+      </div>
+      <div className="flex items-center gap-4">
+        <label className="text-sm font-medium text-slate-600">Radius:</label>
+        <select 
+          className="p-2 border rounded-lg text-sm"
+          value={radius}
+          onChange={(e) => onRadiusChange(Number(e.target.value))}
+        >
+          <option value={5}>5 Miles</option>
+          <option value={10}>10 Miles</option>
+          <option value={15}>15 Miles</option>
+          <option value={25}>25 Miles</option>
+          <option value={50}>50 Miles</option>
+        </select>
+        <p className="text-xs text-slate-500 flex items-center gap-1">
+          <MapPin className="w-3 h-3" /> Or click on the map to place your market center
+        </p>
+      </div>
       {error && (
-        <div className="absolute top-2 left-2 bg-red-100 text-red-700 text-xs px-2 py-1 rounded z-[1000]">
+        <div className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
           {error}
         </div>
       )}
-      <MapContainer
-        center={center}
-        zoom={12}
-        style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={true}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Circle
-          center={center}
-          radius={radiusMeters}
-          pathOptions={{
-            color: '#2563eb',
-            fillColor: '#3b82f6',
-            fillOpacity: 0.2,
-            weight: 2
-          }}
-        />
-        <MapRadiusUpdater center={center} radius={radius} />
-      </MapContainer>
+      <div className="h-72 rounded-xl overflow-hidden border border-slate-200 relative">
+        {loading && (
+          <div className="absolute inset-0 bg-white/70 z-[1000] flex items-center justify-center">
+            <div className="text-blue-600 font-medium">Locating...</div>
+          </div>
+        )}
+        <MapContainer
+          center={centroid}
+          zoom={10}
+          style={{ height: '100%', width: '100%' }}
+          scrollWheelZoom={true}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <Circle
+            center={centroid}
+            radius={radiusMeters}
+            pathOptions={{
+              color: '#2563eb',
+              fillColor: '#3b82f6',
+              fillOpacity: 0.2,
+              weight: 2
+            }}
+          />
+          <Circle
+            center={centroid}
+            radius={500}
+            pathOptions={{
+              color: '#1d4ed8',
+              fillColor: '#1d4ed8',
+              fillOpacity: 0.6,
+              weight: 2
+            }}
+          />
+          <MapRadiusUpdater center={centroid} radius={radius} />
+          <MapClickHandler onMapClick={handleMapClick} />
+        </MapContainer>
+      </div>
+      {centroid && (
+        <div className="text-sm text-slate-600 bg-slate-50 p-2 rounded flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-blue-600" />
+          <span><strong>Market Center:</strong> {centroid[0].toFixed(5)}, {centroid[1].toFixed(5)} • <strong>Radius:</strong> {radius} miles</span>
+        </div>
+      )}
     </div>
   );
 };
@@ -112,12 +192,12 @@ const Navigation = ({ setPage }) => (
     <div className="flex items-center gap-2 font-bold text-2xl text-blue-600 cursor-pointer" onClick={() => setPage('home')}>
       <Layers className="w-8 h-8" />
       <span>AccelMail</span>
-      <h4 className="text-xs font-regular text-slate-500">Powered by Accel Analysis Business Solutions</h4>
+      <a href="https://accelanalysis.com" target="_blank" rel="noopener noreferrer" className="text-xs font-regular text-slate-500 hover:text-blue-600 transition">Powered by Accel Analysis Business Solutions</a>
     </div>
     <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600">
       <button onClick={() => setPage('home')} className="hover:text-blue-600">The Method</button>
       <button onClick={() => setPage('quiz')} className="hover:text-blue-600">Self-Diagnosis</button>
-      <button className="hover:text-blue-600">Case Studies</button>
+      <button onClick={() => setPage('casestudies')} className="hover:text-blue-600">Case Studies</button>
     </div>
     <button 
       onClick={() => setPage('launch')}
@@ -263,6 +343,14 @@ const SixLayerModel = () => {
                 <span className="font-bold block not-italic text-xs mb-1">Example:</span>
                 "{layers[activeLayer].example}"
               </div>
+              {activeLayer < 5 && (
+                <button 
+                  onClick={() => setActiveLayer(activeLayer + 1)}
+                  className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  Next Step <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -346,10 +434,28 @@ const ProofSection = () => (
   </section>
 );
 
-const CampaignTool = () => {
+const CaseStudies = ({ setPage }) => (
+  <div className="max-w-4xl mx-auto py-20 px-6 text-center">
+    <div className="bg-slate-50 p-12 rounded-3xl border border-slate-200">
+      <Clock className="w-16 h-16 text-blue-600 mx-auto mb-6" />
+      <h2 className="text-3xl font-bold text-slate-900 mb-4">Case Studies Coming Soon</h2>
+      <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto">
+        We're updating our case studies with fresh results and new client success stories. Check back soon to see real-world examples of the AccelMail method in action.
+      </p>
+      <button 
+        onClick={() => setPage('home')}
+        className="px-8 py-3 bg-blue-600 text-white rounded-full font-bold hover:bg-blue-700 transition"
+      >
+        Return Home
+      </button>
+    </div>
+  </div>
+);
+
+const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceType, radius, onRadiusChange }) => {
   const [guided, setGuided] = useState(true);
-  const [zipCode, setZipCode] = useState('');
-  const [radius, setRadius] = useState(5);
+
+  const calendarLink = 'https://outlook.office.com/book/AccelAnalysis1@NETORGFT15328873.onmicrosoft.com/s/LUKxf3eKv0igPKL4Tbkb-A2?ismsaljsauthenabled';
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-6">
@@ -374,69 +480,89 @@ const CampaignTool = () => {
           <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
             {guided && (
               <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 p-4 text-blue-800 text-sm">
-                <p className="font-bold flex items-center gap-2"><Info className="w-4 h-4" /> Why Radius Matters:</p>
-                <p>Proximity is often the #1 trust signal for home services. Starting with a tight radius allows for localized testimonials.</p>
+                <p className="font-bold flex items-center gap-2"><Info className="w-4 h-4" /> Define Your Market Center:</p>
+                <p>Set the geographic center of your target market. You can enter an address or click directly on the map to place your market pin.</p>
               </div>
             )}
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><LocateFixed className="w-5 h-5" /> Geographic Targeting</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <input 
-                type="text" 
-                placeholder="Zip Code (e.g., 23451)" 
-                value={zipCode}
-                onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" 
-              />
-              <select 
-                className="p-3 border rounded-lg"
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-              >
-                <option value={5}>5 Mile Radius</option>
-                <option value={10}>10 Mile Radius</option>
-                <option value={15}>15 Mile Radius</option>
-                <option value={25}>25 Mile Radius</option>
-              </select>
-            </div>
-            <InteractiveMap zipCode={zipCode} radius={radius} />
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><LocateFixed className="w-5 h-5" /> Market Center</h3>
+            <InteractiveMap centroid={centroid} onCentroidChange={onCentroidChange} radius={radius} onRadiusChange={onRadiusChange} />
           </div>
 
           <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
             {guided && (
               <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 p-4 text-blue-800 text-sm">
-                <p className="font-bold flex items-center gap-2"><Info className="w-4 h-4" /> Choosing a Segment:</p>
-                <p>Residential vs. Commercial requires different psychology. Don't mix them in one mailer or your message will dilute.</p>
+                <p className="font-bold flex items-center gap-2"><Info className="w-4 h-4" /> Audience Focus:</p>
+                <p>Business and Consumer audiences require different messaging strategies. Select your primary audience type to ensure your outreach resonates.</p>
               </div>
             )}
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><Users className="w-5 h-5" /> Selection Criteria</h3>
-            <div className="grid md:grid-cols-3 gap-4">
-              <button className="p-4 border-2 border-slate-100 rounded-xl hover:border-blue-600 text-left transition font-medium">Residential Homeowners</button>
-              <button className="p-4 border-2 border-slate-100 rounded-xl hover:border-blue-600 text-left transition font-medium">Property Managers</button>
-              <button className="p-4 border-2 border-slate-100 rounded-xl hover:border-blue-600 text-left transition font-medium">Commercial Real Estate</button>
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><Users className="w-5 h-5" /> Audience Focus</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <button 
+                onClick={() => setAudienceType('business')}
+                className={`p-6 border-2 rounded-xl text-left transition font-medium flex items-center gap-4 ${
+                  audienceType === 'business' 
+                    ? 'border-blue-600 bg-blue-50' 
+                    : 'border-slate-100 hover:border-blue-600'
+                }`}
+              >
+                <Building2 className={`w-8 h-8 ${audienceType === 'business' ? 'text-blue-600' : 'text-slate-400'}`} />
+                <div>
+                  <div className="text-lg font-bold">Business</div>
+                  <div className="text-sm text-slate-500">B2B targeting for commercial audiences</div>
+                </div>
+              </button>
+              <button 
+                onClick={() => setAudienceType('consumer')}
+                className={`p-6 border-2 rounded-xl text-left transition font-medium flex items-center gap-4 ${
+                  audienceType === 'consumer' 
+                    ? 'border-blue-600 bg-blue-50' 
+                    : 'border-slate-100 hover:border-blue-600'
+                }`}
+              >
+                <Home className={`w-8 h-8 ${audienceType === 'consumer' ? 'text-blue-600' : 'text-slate-400'}`} />
+                <div>
+                  <div className="text-lg font-bold">Consumer</div>
+                  <div className="text-sm text-slate-500">B2C targeting for residential audiences</div>
+                </div>
+              </button>
             </div>
           </div>
         </div>
 
         <div className="bg-slate-900 text-white p-8 rounded-2xl h-fit sticky top-24">
-          <h3 className="text-xl font-bold mb-6">Campaign Summary</h3>
-          <div className="space-y-4 mb-8">
-            <div className="flex justify-between text-sm border-b border-slate-700 pb-2 text-slate-400">
-              <span>Selected Segment</span>
-              <span className="text-white">TBD</span>
-            </div>
-            <div className="flex justify-between text-sm border-b border-slate-700 pb-2 text-slate-400">
-              <span>Estimated Audience</span>
-              <span className="text-white">0</span>
-            </div>
-            <div className="flex justify-between text-sm border-b border-slate-700 pb-2 text-slate-400">
-              <span>Cost Per Touch</span>
-              <span className="text-white">$0.00</span>
-            </div>
+          <h3 className="text-xl font-bold mb-4">Get Started</h3>
+          <div className="space-y-4 mb-6">
+            <p className="text-slate-300 text-sm leading-relaxed">
+              <strong className="text-white">Stop mailing everyone.</strong> Reach specific targets who actually fit your ideal customer profile.
+            </p>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              <strong className="text-white">You control the pricing</strong> because you control:
+            </p>
+            <ul className="text-slate-400 text-sm space-y-2 ml-4">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <span><strong className="text-slate-200">How many</strong> prospects you want to reach</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <span><strong className="text-slate-200">How far</strong> your market extends</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <span><strong className="text-slate-200">How often</strong> you want outreach</span>
+              </li>
+            </ul>
           </div>
-          <button className="w-full py-4 bg-blue-600 rounded-xl font-bold hover:bg-blue-700 transition">
-            Start Mailer Request
-          </button>
-          <p className="mt-4 text-xs text-slate-500 text-center">No commitment required. We’ll reach out to finalize data filters.</p>
+          <a 
+            href={calendarLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-4 bg-blue-600 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2"
+          >
+            <Calendar className="w-5 h-5" />
+            Schedule a Meeting
+          </a>
+          <p className="mt-4 text-xs text-slate-500 text-center">No commitment required. Let's discuss your targeting strategy.</p>
         </div>
       </div>
     </div>
@@ -448,14 +574,21 @@ const CampaignTool = () => {
 export default function AccelMailApp() {
   const [page, setPage] = useState('home'); // 'home', 'quiz', 'launch', 'results'
   const [emailCaptured, setEmailCaptured] = useState(false);
+  const [centroid, setCentroid] = useState([36.8529, -75.9780]); // Default: Virginia Beach
+  const [audienceType, setAudienceType] = useState(null); // 'business' or 'consumer'
+  const [radius, setRadius] = useState(10); // Default: 10 miles
   const leadEndpoint = import.meta?.env?.VITE_LEAD_ENDPOINT || 'https://script.google.com/macros/s/AKfycbwEOLacSRmhR-EDG0N4FZIZOsFgpgmjSopMdX3XTXFhHQ05sp0CLjQHaoPCj2MFohoEqw/exec';
   const leadToken = import.meta?.env?.VITE_LEAD_TOKEN || '';
+
+  const handleCentroidChange = (coords) => {
+    setCentroid(coords);
+  };
 
   const handleQuizComplete = () => {
     setPage('results');
   };
 
-  const LeadCaptureModal = ({ onClose, source }) => {
+  const LeadCaptureModal = ({ onClose, source, centroid, audienceType }) => {
     const [fullName, setFullName] = useState('');
     const [workEmail, setWorkEmail] = useState('');
     const [company, setCompany] = useState('');
@@ -472,7 +605,10 @@ export default function AccelMailApp() {
         workEmail: workEmail.trim(),
         company: company.trim(),
         phone: phone.trim(),
-        source: (source || '').toString()
+        source: (source || '').toString(),
+        marketCenterLat: centroid ? centroid[0].toString() : '',
+        marketCenterLng: centroid ? centroid[1].toString() : '',
+        audienceType: audienceType || ''
       };
 
       if (!payload.fullName || !payload.workEmail) {
@@ -498,6 +634,9 @@ export default function AccelMailApp() {
           company: payload.company,
           phone: payload.phone,
           source: payload.source,
+          marketCenterLat: payload.marketCenterLat,
+          marketCenterLng: payload.marketCenterLng,
+          audienceType: payload.audienceType,
           token: leadToken
         });
 
@@ -633,14 +772,30 @@ export default function AccelMailApp() {
         </div>
       )}
 
-      {page === 'launch' && <CampaignTool />}
+      {page === 'casestudies' && <CaseStudies setPage={setPage} />}
+
+      {page === 'launch' && (
+        <CampaignTool 
+          centroid={centroid} 
+          onCentroidChange={handleCentroidChange} 
+          audienceType={audienceType} 
+          setAudienceType={setAudienceType}
+          radius={radius}
+          onRadiusChange={setRadius}
+        />
+      )}
 
       {!emailCaptured && (page === 'results' || page === 'launch') && (
-        <LeadCaptureModal onClose={() => setEmailCaptured(true)} source={page} />
+        <LeadCaptureModal 
+          onClose={() => setEmailCaptured(true)} 
+          source={page} 
+          centroid={centroid}
+          audienceType={audienceType}
+        />
       )}
 
       <footer className="mt-20 py-12 border-t border-slate-100 text-center text-slate-400 text-sm">
-        <p>© 2025 AccelMail Powered by Accel Analysis Business Solutions. All Rights Reserved.</p>
+        <p>© 2025 AccelMail Powered by <a href="https://accelanalysis.com" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition">Accel Analysis Business Solutions</a>. All Rights Reserved.</p>
       </footer>
     </div>
   );

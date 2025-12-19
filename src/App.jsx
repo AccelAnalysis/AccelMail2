@@ -124,13 +124,18 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, on
             idField: 'GEOID'
           },
           place: {
-            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/26/query',
-            outFields: 'GEOID,NAMELSAD',
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/0/query',
+            outFields: 'GEOID,NAME',
             idField: 'GEOID'
           },
           tract: {
-            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/10/query',
-            outFields: 'GEOID,NAMELSAD',
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/8/query',
+            outFields: 'GEOID,BASENAME',
+            idField: 'GEOID'
+          },
+          msa: {
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/CBSA/MapServer/2/query',
+            outFields: 'GEOID,NAME',
             idField: 'GEOID'
           }
         };
@@ -243,6 +248,7 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, on
           <option value="county">Counties</option>
           <option value="place">Cities / Places</option>
           <option value="tract">Census Tracts</option>
+          <option value="msa">Metro Areas (MSA)</option>
         </select>
       </div>
       <p className="text-xs text-slate-500 flex items-center gap-1">

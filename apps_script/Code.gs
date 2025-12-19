@@ -12,24 +12,39 @@ function doPost(e) {
   try {
     const data = normalizePayload_(e);
 
+    const isCampaignOnly = !data.fullName && !data.workEmail && (
+      data.marketCenterLat ||
+      data.marketCenterLng ||
+      data.audienceType ||
+      data.radius ||
+      data.boundaryType ||
+      data.boundaryIds ||
+      data.boundaryCount
+    );
+
     if (CONFIG.TOKEN && data.token !== CONFIG.TOKEN) {
       return json_({ ok: false, error: 'unauthorized' }, 401);
     }
 
-    if (!data.fullName || !data.workEmail) {
-      return json_({ ok: false, error: 'missing_fields' }, 400);
-    }
+    if (!isCampaignOnly) {
+      if (!data.fullName || !data.workEmail) {
+        return json_({ ok: false, error: 'missing_fields' }, 400);
+      }
 
-    if (!isEmail_(data.workEmail)) {
-      return json_({ ok: false, error: 'invalid_email' }, 400);
-    }
+      if (!isEmail_(data.workEmail)) {
+        return json_({ ok: false, error: 'invalid_email' }, 400);
+      }
 
-    if (isRateLimited_(data.workEmail)) {
-      return json_({ ok: false, error: 'rate_limited' }, 429);
+      if (isRateLimited_(data.workEmail)) {
+        return json_({ ok: false, error: 'rate_limited' }, 429);
+      }
     }
 
     appendLead_(data);
-    sendKitEmail_(data);
+
+    if (!isCampaignOnly) {
+      sendKitEmail_(data);
+    }
 
     return json_({ ok: true });
   } catch (err) {
@@ -49,7 +64,10 @@ function normalizePayload_(e) {
     marketCenterLat: (p.marketCenterLat || '').trim(),
     marketCenterLng: (p.marketCenterLng || '').trim(),
     audienceType: (p.audienceType || '').trim(),
-    radius: (p.radius || '').trim()
+    radius: (p.radius || '').trim(),
+    boundaryType: (p.boundaryType || '').trim(),
+    boundaryIds: (p.boundaryIds || '').trim(),
+    boundaryCount: (p.boundaryCount || '').trim()
   };
 }
 
@@ -67,18 +85,21 @@ function appendLead_(data) {
     data.audienceType,
     data.marketCenterLat,
     data.marketCenterLng,
-    data.radius
+    data.radius,
+    data.boundaryType,
+    data.boundaryCount,
+    data.boundaryIds
   ]);
 }
 
 function sendKitEmail_(data) {
   const pdfUrl = CONFIG.KIT_PDF_URL;
-  const safePdfUrl = pdfUrl && !String(pdfUrl).includes('PASTE_') ? pdfUrl : '';
+  const safePdfUrl = pdfUrl && !String(pdfUrl).includes('PASTE_') ? pdfUrl : 'https://github.com/AccelAnalysis/AccelMail2/blob/14521ba0bcc277f81857e7b2acbf3338a9c7cc93/resources/AccelMail%20Definition%20Outreach%20Kit.pdf';
 
   const htmlBody = [
     `<p>Hi ${escapeHtml_(data.fullName) || 'there'},</p>`,
     `<p>Here’s your Definition-to-Outreach Kit.</p>`,
-    safePdfUrl ? `<p><a href="${safePdfUrl}">Download the 1-pager PDF</a></p>` : `<p>(PDF link not configured yet)</p>`,
+    safePdfUrl ? `<p><a href="${safePdfUrl}">Download the 1-pager PDF</a></p>` : `<p>Error sending PDF. Please try again.</p>`,
     `<p>If you have questions, reply to this email.</p>`,
     `<p>— ${escapeHtml_(CONFIG.FROM_NAME)}</p>`
   ].join('');

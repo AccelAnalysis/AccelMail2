@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Circle, GeoJSON, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
   ChevronRight, 
@@ -52,10 +52,12 @@ const MapClickHandler = ({ onMapClick }) => {
   return null;
 };
 
-const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange }) => {
+const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, onBoundaryChange }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [addressInput, setAddressInput] = useState('');
+  const [filledBoundaryType, setFilledBoundaryType] = useState('zcta');
+  const [filledGeoJson, setFilledGeoJson] = useState(null);
 
   // Convert radius miles to meters for Leaflet Circle
   const radiusMeters = radius * 1609.34;
@@ -96,6 +98,105 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange }) 
     onCentroidChange(coords, `${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}`);
   };
 
+  useEffect(() => {
+    if (!filledBoundaryType || filledBoundaryType === 'none') {
+      setFilledGeoJson(null);
+      if (onBoundaryChange) {
+        onBoundaryChange({ type: 'radius', ids: [], count: 0 });
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchZctas = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const boundaryConfigs = {
+          zcta: {
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/PUMA_TAD_TAZ_UGA_ZCTA/MapServer/1/query',
+            outFields: 'ZCTA5,BASENAME',
+            idField: 'ZCTA5'
+          },
+          county: {
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/11/query',
+            outFields: 'GEOID,NAME',
+            idField: 'GEOID'
+          },
+          place: {
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/26/query',
+            outFields: 'GEOID,NAMELSAD',
+            idField: 'GEOID'
+          },
+          tract: {
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/10/query',
+            outFields: 'GEOID,NAMELSAD',
+            idField: 'GEOID'
+          }
+        };
+
+        const cfg = boundaryConfigs[filledBoundaryType] || boundaryConfigs.zcta;
+
+        const url = new URL(cfg.queryUrl);
+        url.searchParams.set('f', 'geojson');
+        url.searchParams.set('where', '1=1');
+        url.searchParams.set('returnGeometry', 'true');
+        url.searchParams.set('outFields', cfg.outFields);
+        url.searchParams.set('geometryType', 'esriGeometryPoint');
+        url.searchParams.set('inSR', '4326');
+        url.searchParams.set('outSR', '4326');
+        url.searchParams.set('spatialRel', 'esriSpatialRelIntersects');
+        url.searchParams.set('geometry', `${centroid[1]},${centroid[0]}`);
+        url.searchParams.set('distance', String(radiusMeters));
+        url.searchParams.set('units', 'esriSRUnit_Meter');
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`TIGERweb request failed (${response.status})`);
+        }
+
+        const geojson = await response.json();
+
+        if (cancelled) return;
+
+        setFilledGeoJson(geojson);
+
+        const ids = Array.isArray(geojson?.features)
+          ? geojson.features
+              .map((f) => (f?.properties?.[cfg.idField] || '').toString().trim())
+              .filter(Boolean)
+          : [];
+
+        if (onBoundaryChange) {
+          onBoundaryChange({ type: filledBoundaryType, ids, count: ids.length });
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setFilledGeoJson(null);
+        setError('Could not load filled areas. Showing radius instead.');
+        if (onBoundaryChange) {
+          onBoundaryChange({ type: 'radius', ids: [], count: 0 });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const debounce = setTimeout(fetchZctas, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(debounce);
+    };
+  }, [centroid, radiusMeters, filledBoundaryType, onBoundaryChange]);
+
   return (
     <div className="mt-6 space-y-4">
       <div className="flex gap-2">
@@ -128,10 +229,22 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange }) 
           <option value={25}>25 Miles</option>
           <option value={50}>50 Miles</option>
         </select>
-        <p className="text-xs text-slate-500 flex items-center gap-1">
-          <MapPin className="w-3 h-3" /> Or click on the map to place your market center
-        </p>
+        <label className="text-sm font-medium text-slate-600">Filled Area:</label>
+        <select
+          className="p-2 border rounded-lg text-sm"
+          value={filledBoundaryType}
+          onChange={(e) => setFilledBoundaryType(e.target.value)}
+        >
+          <option value="none">None (radius only)</option>
+          <option value="zcta">ZIP Codes (ZCTA)</option>
+          <option value="county">Counties</option>
+          <option value="place">Cities / Places</option>
+          <option value="tract">Census Tracts</option>
+        </select>
       </div>
+      <p className="text-xs text-slate-500 flex items-center gap-1">
+        <MapPin className="w-3 h-3" /> Or click on the map to place your market center
+      </p>
       {error && (
         <div className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
           {error}
@@ -163,6 +276,17 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange }) 
               weight: 2
             }}
           />
+          {filledBoundaryType !== 'none' && filledGeoJson && (
+            <GeoJSON
+              data={filledGeoJson}
+              style={() => ({
+                color: '#2563eb',
+                weight: 1,
+                fillColor: '#3b82f6',
+                fillOpacity: 0.12
+              })}
+            />
+          )}
           <Circle
             center={centroid}
             radius={500}
@@ -452,8 +576,9 @@ const CaseStudies = ({ setPage }) => (
   </div>
 );
 
-const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceType, radius, onRadiusChange }) => {
+const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceType, radius, onRadiusChange, onBoundaryChange, submitCampaignDetails }) => {
   const [guided, setGuided] = useState(true);
+  const [scheduling, setScheduling] = useState(false);
 
   const calendarLink = 'https://outlook.office.com/book/AccelAnalysis1@NETORGFT15328873.onmicrosoft.com/s/LUKxf3eKv0igPKL4Tbkb-A2?ismsaljsauthenabled';
 
@@ -484,8 +609,8 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
                 <p>Set the geographic center of your target market. You can enter an address or click directly on the map to place your market pin.</p>
               </div>
             )}
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><LocateFixed className="w-5 h-5" /> Market Center</h3>
-            <InteractiveMap centroid={centroid} onCentroidChange={onCentroidChange} radius={radius} onRadiusChange={onRadiusChange} />
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><LocateFixed className="w-5 h-5" /> Market Reach</h3>
+            <InteractiveMap centroid={centroid} onCentroidChange={onCentroidChange} radius={radius} onRadiusChange={onRadiusChange} onBoundaryChange={onBoundaryChange} />
           </div>
 
           <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
@@ -553,16 +678,25 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
               </li>
             </ul>
           </div>
-          <a 
-            href={calendarLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-4 bg-blue-600 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2"
+          <button
+            type="button"
+            onClick={() => {
+              const meetingWindow = window.open(calendarLink, '_blank', 'noopener,noreferrer');
+              setScheduling(true);
+              Promise.resolve(submitCampaignDetails ? submitCampaignDetails('schedule_meeting') : null)
+                .catch(() => null)
+                .finally(() => setScheduling(false));
+              if (!meetingWindow) {
+                window.location.href = calendarLink;
+              }
+            }}
+            className="w-full py-4 bg-blue-600 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-60"
+            disabled={!audienceType || !centroid || scheduling}
           >
             <Calendar className="w-5 h-5" />
-            Schedule a Meeting
-          </a>
-          <p className="mt-4 text-xs text-slate-500 text-center">No commitment required. Let's discuss your targeting strategy.</p>
+            {scheduling ? 'Opening Calendar…' : 'Schedule a Meeting'}
+          </button>
+          <p className="mt-4 text-xs text-slate-500 text-center">Scheduling submits your market and audience selections so we can prepare for the call.</p>
         </div>
       </div>
     </div>
@@ -577,8 +711,36 @@ export default function AccelMailApp() {
   const [centroid, setCentroid] = useState([36.8529, -75.9780]); // Default: Virginia Beach
   const [audienceType, setAudienceType] = useState(null); // 'business' or 'consumer'
   const [radius, setRadius] = useState(10); // Default: 10 miles
+  const [boundarySelection, setBoundarySelection] = useState({ type: 'radius', ids: [], count: 0 });
   const leadEndpoint = import.meta?.env?.VITE_LEAD_ENDPOINT || 'https://script.google.com/macros/s/AKfycbwEOLacSRmhR-EDG0N4FZIZOsFgpgmjSopMdX3XTXFhHQ05sp0CLjQHaoPCj2MFohoEqw/exec';
   const leadToken = import.meta?.env?.VITE_LEAD_TOKEN || '';
+
+  const submitCampaignDetails = async (sourceOverride) => {
+    if (!leadEndpoint || leadEndpoint.includes('PASTE_')) return;
+
+    const source = (sourceOverride || page || '').toString();
+    const params = new URLSearchParams({
+      fullName: '',
+      workEmail: '',
+      company: '',
+      phone: '',
+      source,
+      marketCenterLat: centroid ? centroid[0].toString() : '',
+      marketCenterLng: centroid ? centroid[1].toString() : '',
+      audienceType: audienceType || '',
+      radius: (radius == null ? '' : String(radius)),
+      boundaryType: (boundarySelection?.type || '').toString(),
+      boundaryIds: Array.isArray(boundarySelection?.ids) ? boundarySelection.ids.join(',') : '',
+      boundaryCount: (boundarySelection?.count == null ? '' : String(boundarySelection.count)),
+      token: leadToken
+    });
+
+    await fetch(leadEndpoint, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: params
+    });
+  };
 
   const handleCentroidChange = (coords) => {
     setCentroid(coords);
@@ -593,6 +755,7 @@ export default function AccelMailApp() {
     const [workEmail, setWorkEmail] = useState('');
     const [company, setCompany] = useState('');
     const [phone, setPhone] = useState('');
+    const [contactConsent, setContactConsent] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [submitted, setSubmitted] = useState(false);
@@ -609,11 +772,19 @@ export default function AccelMailApp() {
         marketCenterLat: centroid ? centroid[0].toString() : '',
         marketCenterLng: centroid ? centroid[1].toString() : '',
         audienceType: audienceType || '',
-        radius: (radius == null ? '' : String(radius))
+        radius: (radius == null ? '' : String(radius)),
+        boundaryType: (boundarySelection?.type || '').toString(),
+        boundaryIds: Array.isArray(boundarySelection?.ids) ? boundarySelection.ids.join(',') : '',
+        boundaryCount: (boundarySelection?.count == null ? '' : String(boundarySelection.count))
       };
 
       if (!payload.fullName || !payload.workEmail) {
         setSubmitError('Please enter your name and work email.');
+        return;
+      }
+
+      if (!contactConsent) {
+        setSubmitError('Please confirm you consent to be contacted.');
         return;
       }
 
@@ -639,6 +810,9 @@ export default function AccelMailApp() {
           marketCenterLng: payload.marketCenterLng,
           audienceType: payload.audienceType,
           radius: payload.radius,
+          boundaryType: payload.boundaryType,
+          boundaryIds: payload.boundaryIds,
+          boundaryCount: payload.boundaryCount,
           token: leadToken
         });
 
@@ -664,7 +838,19 @@ export default function AccelMailApp() {
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl relative z-[10000]">
           <h3 className="text-2xl font-bold text-slate-900 mb-2">Get the Definition-to-Outreach Kit</h3>
-          <p className="text-slate-500 mb-6">Enter your info to get our 1-page segmentation checklist + example high-intent lists.</p>
+          <p className="text-slate-500 mb-2">Enter your info to get our 1-pager.</p>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => {
+              setSubmitError('');
+              onClose();
+              if (source !== 'launch') setPage('launch');
+            }}
+            className="text-xs text-blue-600 hover:text-blue-700 font-semibold underline underline-offset-2 mb-6"
+          >
+            I already have received the 1-pager
+          </button>
           <div className="space-y-4">
             <input
               type="text"
@@ -698,6 +884,17 @@ export default function AccelMailApp() {
               className="w-full p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
               disabled={submitting || submitted}
             />
+
+            <label className="flex items-start gap-3 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={contactConsent}
+                onChange={(e) => setContactConsent(e.target.checked)}
+                disabled={submitting || submitted}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+              />
+              <span>I consent to be contacted about AccelMail.</span>
+            </label>
 
             {!!submitError && (
               <div className="text-sm text-red-600 font-semibold">{submitError}</div>
@@ -784,6 +981,8 @@ export default function AccelMailApp() {
           setAudienceType={setAudienceType}
           radius={radius}
           onRadiusChange={setRadius}
+          onBoundaryChange={setBoundarySelection}
+          submitCampaignDetails={submitCampaignDetails}
         />
       )}
 
@@ -793,6 +992,7 @@ export default function AccelMailApp() {
           source={page} 
           centroid={centroid}
           audienceType={audienceType}
+          radius={radius}
         />
       )}
 

@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Circle, GeoJSON, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
-  ChevronRight, 
   Target, 
   Users, 
   UserCheck, 
   MessageSquare, 
   Zap, 
-  BarChart3, 
   CheckCircle2, 
   ArrowRight,
   Info,
@@ -70,7 +68,7 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, on
     
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressInput)}&format=json&limit=1`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressInput)}&format=json&limit=1&countrycodes=us`,
         {
           headers: {
             'Accept': 'application/json',
@@ -165,6 +163,11 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, on
         const geojson = await response.json();
 
         if (cancelled) return;
+
+        // Validate GeoJSON before setting
+        if (!geojson || geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
+          throw new Error('Invalid GeoJSON response');
+        }
 
         setFilledGeoJson(geojson);
 
@@ -276,8 +279,9 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, on
               weight: 2
             }}
           />
-          {filledBoundaryType !== 'none' && filledGeoJson && (
+          {filledBoundaryType !== 'none' && filledGeoJson && filledGeoJson.features?.length > 0 && (
             <GeoJSON
+              key={`${filledBoundaryType}-${centroid[0]}-${centroid[1]}-${radius}-${filledGeoJson.features.length}`}
               data={filledGeoJson}
               style={() => ({
                 color: '#2563eb',
@@ -691,7 +695,7 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
               }
             }}
             className="w-full py-4 bg-blue-600 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-60"
-            disabled={!audienceType || !centroid || scheduling}
+            disabled={scheduling}
           >
             <Calendar className="w-5 h-5" />
             {scheduling ? 'Opening Calendar…' : 'Schedule a Meeting'}

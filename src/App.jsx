@@ -124,7 +124,7 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, on
             idField: 'GEOID'
           },
           place: {
-            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/0/query',
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/4/query',
             outFields: 'GEOID,NAME',
             idField: 'GEOID'
           },
@@ -134,8 +134,8 @@ const InteractiveMap = ({ centroid, onCentroidChange, radius, onRadiusChange, on
             idField: 'GEOID'
           },
           msa: {
-            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/CBSA/MapServer/2/query',
-            outFields: 'GEOID,NAME',
+            queryUrl: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/CBSA/MapServer/3/query',
+            outFields: 'GEOID,NAME,BASENAME',
             idField: 'GEOID'
           }
         };
@@ -597,7 +597,7 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
           <h2 className="text-3xl font-bold">Campaign Request</h2>
-          <p className="text-slate-500">Configure your high-targeting direct mail program.</p>
+          <p className="text-slate-500">Provide some basic information below, then click Schedule a Meeting, where we'll discover your market and define your campaign.</p>
         </div>
         <div className="flex items-center gap-3 p-2 bg-slate-100 rounded-lg">
           <span className="text-sm font-bold text-slate-600">Guided Mode</span>

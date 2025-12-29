@@ -838,7 +838,7 @@ export default function AccelMailApp() {
           onClose();
         }, 600);
       } catch (e) {
-        setSubmitError('Something went wrong sending your kit. Please try again.');
+        setSubmitError('Something went wrong sending your one-pager. Please try again.');
       } finally {
         setSubmitting(false);
       }
@@ -847,7 +847,7 @@ export default function AccelMailApp() {
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl relative z-[10000]">
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Get the Definition-to-Outreach Kit</h3>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Get our From Definition-to-Outreach One-pager</h3>
           <p className="text-slate-500 mb-2">Enter your info to get our 1-pager.</p>
           <button
             type="button"
@@ -918,7 +918,7 @@ export default function AccelMailApp() {
               disabled={submitting || submitted}
               className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition disabled:opacity-60"
             >
-              {submitting ? 'Sending…' : 'Get the Kit & View Results'}
+              {submitting ? 'Sending…' : 'Get the One-pager'}
             </button>
           </div>
         </div>

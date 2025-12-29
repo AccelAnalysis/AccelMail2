@@ -350,7 +350,7 @@ const Hero = ({ setPage }) => (
       <span className="text-blue-600 underline decoration-blue-200">they have a definition problem.</span>
     </h1>
     <p className="mt-6 text-xl text-slate-600 max-w-3xl mx-auto">
-      Stop blasting generic outreach. We help you connect data to real prospects. Identify market segments, refine messaging, then launch outreach to real targets, so you can stop wondering – Where are my customers really at?.
+      Stop blasting generic mailers. We help you connect data to real prospects. Identify market segments, refine messaging, then launch outreach, so you can stop wondering – Where are my customers really at?.
     </p>
     <div className="mt-10 flex flex-col md:flex-row gap-4 justify-center">
       <button 

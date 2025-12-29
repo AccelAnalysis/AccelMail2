@@ -619,7 +619,7 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
                 <p>Set the geographic center of your target market. You can enter an address or click directly on the map to place your market pin.</p>
               </div>
             )}
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><LocateFixed className="w-5 h-5" /> Market Reach</h3>
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><LocateFixed className="w-5 h-5" /> Desired Initial Market Reach</h3>
             <InteractiveMap centroid={centroid} onCentroidChange={onCentroidChange} radius={radius} onRadiusChange={onRadiusChange} onBoundaryChange={onBoundaryChange} />
           </div>
 

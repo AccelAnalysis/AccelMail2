@@ -586,7 +586,7 @@ const CaseStudies = ({ setPage }) => (
   </div>
 );
 
-const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceType, radius, onRadiusChange, onBoundaryChange, submitCampaignDetails }) => {
+const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceType, radius, onRadiusChange, onBoundaryChange, submitCampaignDetails, quoteBusinessName, setQuoteBusinessName, quoteContactName, setQuoteContactName, quoteContactPhone, setQuoteContactPhone }) => {
   const [guided, setGuided] = useState(true);
   const [scheduling, setScheduling] = useState(false);
 
@@ -596,8 +596,8 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
     <div className="max-w-7xl mx-auto py-10 px-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Campaign Request</h2>
-          <p className="text-slate-500">Provide some basic information below, then click Schedule a Meeting, where we'll discover your market and define your campaign.</p>
+          <h2 className="text-3xl font-bold">Quote Request</h2>
+          <p className="text-slate-500">Provide some basic info below. We'll begin the analysis and prepare a quote to share on our virtual meeting.</p>
         </div>
         <div className="flex items-center gap-3 p-2 bg-slate-100 rounded-lg">
           <span className="text-sm font-bold text-slate-600">Guided Mode</span>
@@ -662,6 +662,39 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
               </button>
             </div>
           </div>
+
+          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+            {guided && (
+              <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 p-4 text-blue-800 text-sm">
+                <p className="font-bold flex items-center gap-2"><Info className="w-4 h-4" /> Contact Details:</p>
+                <p>Add a few details so we know who to prepare the quote for.</p>
+              </div>
+            )}
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><Building2 className="w-5 h-5" /> Your Details</h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={quoteBusinessName}
+                onChange={(e) => setQuoteBusinessName(e.target.value)}
+                placeholder="Business Name"
+                className="w-full p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <input
+                type="text"
+                value={quoteContactName}
+                onChange={(e) => setQuoteContactName(e.target.value)}
+                placeholder="Contact Name"
+                className="w-full p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <input
+                type="tel"
+                value={quoteContactPhone}
+                onChange={(e) => setQuoteContactPhone(e.target.value)}
+                placeholder="Contact Phone"
+                className="w-full p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="bg-slate-900 text-white p-8 rounded-2xl h-fit sticky top-24">
@@ -671,7 +704,7 @@ const CampaignTool = ({ centroid, onCentroidChange, audienceType, setAudienceTyp
               <strong className="text-white">Stop mailing everyone.</strong> Reach specific targets who actually fit your ideal customer profile.
             </p>
             <p className="text-slate-300 text-sm leading-relaxed">
-              <strong className="text-white">You control the pricing</strong> because you control:
+              <strong className="text-white">You control your spend</strong> because you control:
             </p>
             <ul className="text-slate-400 text-sm space-y-2 ml-4">
               <li className="flex items-start gap-2">
@@ -722,6 +755,9 @@ export default function AccelMailApp() {
   const [audienceType, setAudienceType] = useState(null); // 'business' or 'consumer'
   const [radius, setRadius] = useState(10); // Default: 10 miles
   const [boundarySelection, setBoundarySelection] = useState({ type: 'radius', ids: [], count: 0 });
+  const [quoteBusinessName, setQuoteBusinessName] = useState('');
+  const [quoteContactName, setQuoteContactName] = useState('');
+  const [quoteContactPhone, setQuoteContactPhone] = useState('');
   const leadEndpoint = import.meta?.env?.VITE_LEAD_ENDPOINT || 'https://script.google.com/macros/s/AKfycbwEOLacSRmhR-EDG0N4FZIZOsFgpgmjSopMdX3XTXFhHQ05sp0CLjQHaoPCj2MFohoEqw/exec';
   const leadToken = import.meta?.env?.VITE_LEAD_TOKEN || '';
 
@@ -734,6 +770,9 @@ export default function AccelMailApp() {
       workEmail: '',
       company: '',
       phone: '',
+      businessName: quoteBusinessName.trim(),
+      contactName: quoteContactName.trim(),
+      contactPhone: quoteContactPhone.trim(),
       source,
       marketCenterLat: centroid ? centroid[0].toString() : '',
       marketCenterLng: centroid ? centroid[1].toString() : '',
@@ -765,6 +804,7 @@ export default function AccelMailApp() {
     const [workEmail, setWorkEmail] = useState('');
     const [company, setCompany] = useState('');
     const [phone, setPhone] = useState('');
+    const [callbackTime, setCallbackTime] = useState('');
     const [contactConsent, setContactConsent] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
@@ -778,6 +818,7 @@ export default function AccelMailApp() {
         workEmail: workEmail.trim(),
         company: company.trim(),
         phone: phone.trim(),
+        callbackTime: (callbackTime || '').toString(),
         source: (source || '').toString(),
         marketCenterLat: centroid ? centroid[0].toString() : '',
         marketCenterLng: centroid ? centroid[1].toString() : '',
@@ -798,6 +839,11 @@ export default function AccelMailApp() {
         return;
       }
 
+      if (!payload.callbackTime) {
+        setSubmitError('Please select the best time to call you back.');
+        return;
+      }
+
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.workEmail)) {
         setSubmitError('Please enter a valid email address.');
         return;
@@ -815,6 +861,7 @@ export default function AccelMailApp() {
           workEmail: payload.workEmail,
           company: payload.company,
           phone: payload.phone,
+          callbackTime: payload.callbackTime,
           source: payload.source,
           marketCenterLat: payload.marketCenterLat,
           marketCenterLng: payload.marketCenterLng,
@@ -847,8 +894,8 @@ export default function AccelMailApp() {
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl relative z-[10000]">
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Get our From Definition-to-Outreach One-pager</h3>
-          <p className="text-slate-500 mb-2">Enter your info to get our 1-pager.</p>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Schedule a Call to Define My Market</h3>
+          <p className="text-slate-500 mb-2">We'll also email you our From Definition-to-Outreach 1-pager.</p>
           <button
             type="button"
             disabled={submitting}
@@ -859,7 +906,7 @@ export default function AccelMailApp() {
             }}
             className="text-xs text-blue-600 hover:text-blue-700 font-semibold underline underline-offset-2 mb-6"
           >
-            I already have received the 1-pager
+            Click Here to Request a Quote & Virtual Meeting Instead
           </button>
           <div className="space-y-4">
             <input
@@ -894,6 +941,18 @@ export default function AccelMailApp() {
               className="w-full p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
               disabled={submitting || submitted}
             />
+
+            <select
+              value={callbackTime}
+              onChange={(e) => setCallbackTime(e.target.value)}
+              className="w-full p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+              disabled={submitting || submitted}
+            >
+              <option value="" disabled>Best time to call back</option>
+              <option value="Morning (8-12)">Morning (8-12)</option>
+              <option value="Afternoon (12-4)">Afternoon (12-4)</option>
+              <option value="Evening (4-7)">Evening (4-7)</option>
+            </select>
 
             <label className="flex items-start gap-3 text-sm text-slate-600">
               <input
@@ -993,6 +1052,12 @@ export default function AccelMailApp() {
           onRadiusChange={setRadius}
           onBoundaryChange={setBoundarySelection}
           submitCampaignDetails={submitCampaignDetails}
+          quoteBusinessName={quoteBusinessName}
+          setQuoteBusinessName={setQuoteBusinessName}
+          quoteContactName={quoteContactName}
+          setQuoteContactName={setQuoteContactName}
+          quoteContactPhone={quoteContactPhone}
+          setQuoteContactPhone={setQuoteContactPhone}
         />
       )}
 

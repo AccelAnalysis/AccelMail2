@@ -365,7 +365,7 @@ const Hero = ({ setPage }) => (
         onClick={() => setPage('launch')}
         className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-lg hover:border-blue-600 transition"
       >
-        I’m Ready to Launch
+        Let's Go!
       </button>
     </div>
   </section>

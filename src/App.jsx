@@ -894,8 +894,8 @@ export default function AccelMailApp() {
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl relative z-[10000]">
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Schedule a Call to Define My Market</h3>
-          <p className="text-slate-500 mb-2">We'll also email you our From Definition-to-Outreach 1-pager.</p>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Schedule a Define My Market Call</h3>
+          <p className="text-slate-500 mb-2">You also receive our \"From Definition-to-Outreach\" 1-pager via email.</p>
           <button
             type="button"
             disabled={submitting}

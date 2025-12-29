@@ -59,6 +59,10 @@ function normalizePayload_(e) {
     workEmail: (p.workEmail || '').trim(),
     company: (p.company || '').trim(),
     phone: (p.phone || '').trim(),
+    callbackTime: (p.callbackTime || '').trim(),
+    businessName: (p.businessName || '').trim(),
+    contactName: (p.contactName || '').trim(),
+    contactPhone: (p.contactPhone || '').trim(),
     source: (p.source || '').trim(),
     token: (p.token || '').trim(),
     marketCenterLat: (p.marketCenterLat || '').trim(),
@@ -88,7 +92,11 @@ function appendLead_(data) {
     data.radius,
     data.boundaryType,
     data.boundaryCount,
-    data.boundaryIds
+    data.boundaryIds,
+    data.callbackTime,
+    data.businessName,
+    data.contactName,
+    data.contactPhone
   ]);
 }
 
